@@ -52,6 +52,14 @@
                 const saved = localStorage.getItem('channelHistory');
                 return saved ? JSON.parse(saved) : ["ガン", "ピン1", "", "", "", "", "", ""];
             };
+            const loadLocationHistory = () => {
+                const saved = localStorage.getItem('locationHistory');
+                return saved ? JSON.parse(saved) : [];
+            };
+            const loadHashiraHistory = () => {
+                const saved = localStorage.getItem('hashiraHistory');
+                return saved ? JSON.parse(saved) : [];
+            };
             const loadFolderId = () => {
                 return localStorage.getItem('targetFolderId') || "";
             };
@@ -68,6 +76,12 @@
             const [projectHistory, setProjectHistory] = useState(loadProjectHistory());
             
             const [date, setDate] = useState(today);
+            const [locationName, setLocationName] = useState("");
+            const [locationHistory, setLocationHistory] = useState(loadLocationHistory());
+            
+            const [hashira, setHashira] = useState("");
+            const [hashiraHistory, setHashiraHistory] = useState(loadHashiraHistory());
+
             const [roll, setRoll] = useState("R-01");
             const [scene, setScene] = useState("1");
             const [sceneHistory, setSceneHistory] = useState(loadSceneHistory());
@@ -141,13 +155,29 @@
                 window.open("https://www.flightradar24.com/", "_blank");
             };
 
+            const openTenki = () => {
+                window.open("https://tenki.jp/", "_blank");
+            };
+
             const handleRecordTake = () => {
-                const currentData = { project, date, roll, scene, cut, take, fileNo, evaluation, memo, channels: [...channels] };
+                const currentData = { project, date, locationName, hashira, roll, scene, cut, take, fileNo, evaluation, memo, channels: [...channels] };
                 
                 if (project && !projectHistory.includes(project)) {
                     const newProjHistory = [project, ...projectHistory];
                     setProjectHistory(newProjHistory);
                     localStorage.setItem('projectHistory', JSON.stringify(newProjHistory));
+                }
+                
+                if (locationName && !locationHistory.includes(locationName)) {
+                    const newLocHistory = [locationName, ...locationHistory];
+                    setLocationHistory(newLocHistory);
+                    localStorage.setItem('locationHistory', JSON.stringify(newLocHistory));
+                }
+
+                if (hashira && !hashiraHistory.includes(hashira)) {
+                    const newHashiraHistory = [hashira, ...hashiraHistory];
+                    setHashiraHistory(newHashiraHistory);
+                    localStorage.setItem('hashiraHistory', JSON.stringify(newHashiraHistory));
                 }
 
                 if (scene && !sceneHistory.includes(scene)) {
@@ -182,6 +212,8 @@
                 const item = history[index];
                 setProject(item.project);
                 setDate(item.date);
+                setLocationName(item.locationName || "");
+                setHashira(item.hashira || "");
                 setRoll(item.roll);
                 setScene(item.scene);
                 setCut(item.cut);
@@ -195,7 +227,6 @@
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             };
 
-            // 個別の履歴を削除
             const handleDeleteItem = (index) => {
                 if (confirm("この記録を削除しますか？")) {
                     const newHistory = history.filter((_, i) => i !== index);
@@ -206,7 +237,6 @@
                 }
             };
 
-            // すべての保存待ち履歴を一括削除
             const handleClearAllHistory = () => {
                 if (confirm("保存待ちのテイクをすべて削除しますか？この操作は元に戻せません。")) {
                     updateHistoryAndSave([]);
@@ -236,10 +266,26 @@
 
                 setIsSubmitting(true);
                 
+                // 送信前に、ロケ地・柱が入力されていれば「備考」欄に合体させる
+                const payloadRecords = [...history].reverse().map(item => {
+                    let combinedMemo = item.memo || "";
+                    let tags = [];
+                    
+                    if (item.locationName) tags.push(`📍${item.locationName}`);
+                    if (item.hashira) tags.push(`柱:${item.hashira}`);
+                    
+                    let prefix = tags.length > 0 ? `[${tags.join(" ")}] ` : "";
+                    
+                    return {
+                        ...item,
+                        memo: prefix + combinedMemo
+                    };
+                });
+                
                 const payload = {
                     project: project,
                     folderId: currentFolderId,
-                    records: [...history].reverse() 
+                    records: payloadRecords
                 };
 
                 try {
@@ -288,8 +334,11 @@
                             >
                                 📖 使い方
                             </button>
-                            <button onClick={openFlightradar} className="bg-blue-900 text-white px-2 py-1 rounded text-xs">
+                            <button onClick={openFlightradar} className="bg-blue-900 text-white px-2 py-1 rounded text-xs" title="Flightradar24">
                                 ✈️
+                            </button>
+                            <button onClick={openTenki} className="bg-orange-600 text-white px-2 py-1 rounded text-xs" title="tenki.jp">
+                                🌤️
                             </button>
                         </div>
                     </div>
@@ -354,6 +403,39 @@
                                 <div>
                                     <label className="text-xs text-gray-400">日付</label>
                                     <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                                </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-2 mb-4">
+                                <div>
+                                    <label className="text-xs text-gray-400">ロケ地</label>
+                                    <input 
+                                        type="text" 
+                                        value={locationName} 
+                                        onChange={(e) => setLocationName(e.target.value)} 
+                                        placeholder="例: 〇〇スタジオ" 
+                                        list="location-list"
+                                    />
+                                    <datalist id="location-list">
+                                        {locationHistory.map((loc, idx) => (
+                                            <option key={idx} value={loc} />
+                                        ))}
+                                    </datalist>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-400">シーンの柱</label>
+                                    <input 
+                                        type="text" 
+                                        value={hashira} 
+                                        onChange={(e) => setHashira(e.target.value)} 
+                                        placeholder="例: 〇〇公園（昼）" 
+                                        list="hashira-list"
+                                    />
+                                    <datalist id="hashira-list">
+                                        {hashiraHistory.map((h, idx) => (
+                                            <option key={idx} value={h} />
+                                        ))}
+                                    </datalist>
                                 </div>
                             </div>
 
@@ -457,6 +539,15 @@
                                                         Sc:{item.scene} / Cut:{item.cut} / Tk:{item.take} {item.fileNo ? `(` + item.fileNo + `)` : ''}
                                                         <span className="ml-2 text-xs px-1.5 py-0.5 bg-gray-700 rounded">{item.evaluation}</span>
                                                     </div>
+                                                    
+                                                    {/* ロケ地や柱がある場合のみ表示 */}
+                                                    {(item.locationName || item.hashira) && (
+                                                        <div className="text-xs text-blue-300 mt-1 truncate">
+                                                            {item.locationName && <span>📍 {item.locationName} </span>}
+                                                            {item.hashira && <span>📝 {item.hashira}</span>}
+                                                        </div>
+                                                    )}
+
                                                     {item.memo && <div className="text-xs text-gray-400 mt-1 truncate">{item.memo}</div>}
                                                 </div>
                                                 <div className="flex items-center gap-1 shrink-0">
