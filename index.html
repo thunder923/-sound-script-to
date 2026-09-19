@@ -328,7 +328,7 @@ function doGet(e) {
             const currentFolderName = localStorage.getItem('targetFolderName');
 
             return (
-                <div className="max-w-md mx-auto p-4 pb-20">
+                <div className="w-full max-w-md md:max-w-4xl lg:max-w-5xl mx-auto p-4 pb-20">
                     <div className="flex justify-between items-center mb-2 border-b border-gray-700 pb-2">
                         <div className="flex items-center gap-2">
                             <h1 className="text-lg font-bold text-gray-200">🎙️ 録音スクリプト</h1>
@@ -346,14 +346,14 @@ function doGet(e) {
 
                     <div className="bg-gray-800 px-3 py-1.5 rounded mb-4 text-xs flex justify-between items-center border border-gray-700">
                         <span className="text-gray-400">📁 保存先:</span>
-                        <span className="text-blue-300 font-bold truncate max-w-[260px]">
+                        <span className="text-blue-300 font-bold truncate max-w-[260px] md:max-w-md">
                             {currentFolderName ? currentFolderName : "（未設定）"}
                         </span>
                     </div>
 
                     {showSettings && (
                         <div className="modal p-4">
-                            <div className="bg-gray-800 p-4 rounded-lg w-full max-w-sm border border-gray-700 max-h-[90vh] overflow-y-auto">
+                            <div className="bg-gray-800 p-4 rounded-lg w-full max-w-md border border-gray-700 max-h-[90vh] overflow-y-auto">
                                 <h2 className="text-lg font-bold mb-4 text-white border-b border-gray-600 pb-2">⚙️ 詳細設定</h2>
                                 
                                 <div className="mb-4">
@@ -379,105 +379,117 @@ function doGet(e) {
                     )}
 
                     {currentTab === 'recorder' && (
-                        <div>
-                            <div className="grid grid-cols-2 gap-2 mb-4">
-                                <div>
-                                    <label className="text-xs text-gray-400">作品名</label>
-                                    <input type="text" value={project} onChange={handleProjectChange} placeholder="映画タイトルなど" list="project-list" />
-                                    <datalist id="project-list">{projectHistory.map((pName, idx) => <option key={idx} value={pName} />)}</datalist>
-                                </div>
-                                <div>
-                                    <label className="text-xs text-gray-400">日付</label>
-                                    <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-                                </div>
-                            </div>
+                        <div className="flex flex-col md:flex-row gap-6">
                             
-                            <div className="grid grid-cols-2 gap-2 mb-4">
-                                <div>
-                                    <label className="text-xs text-gray-400">ロケ地</label>
-                                    <input type="text" value={locationName} onChange={(e) => setLocationName(e.target.value)} placeholder="例: 〇〇スタジオ" list="location-list" />
-                                    <datalist id="location-list">{locationHistory.map((loc, idx) => <option key={idx} value={loc} />)}</datalist>
-                                </div>
-                                <div>
-                                    <label className="text-xs text-gray-400">シーンの柱</label>
-                                    <input type="text" value={hashira} onChange={(e) => setHashira(e.target.value)} placeholder="例: 〇〇公園（昼）" list="hashira-list" />
-                                    <datalist id="hashira-list">{hashiraHistory.map((h, idx) => <option key={idx} value={h} />)}</datalist>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-4 gap-2 mb-4">
-                                <div><label className="text-xs text-gray-400">ロール</label><input type="text" value={roll} onChange={(e) => setRoll(e.target.value)} /></div>
-                                <div><label className="text-xs text-gray-400">シーン</label><input type="text" value={scene} onChange={(e) => { setScene(e.target.value); setTake(1); }} list="scene-list" /><datalist id="scene-list">{sceneHistory.map((sNum, idx) => <option key={idx} value={sNum} />)}</datalist></div>
-                                <div><label className="text-xs text-gray-400">カット</label><input type="text" value={cut} onChange={(e) => { setCut(e.target.value); setTake(1); }} list="cut-list" /><datalist id="cut-list">{cutHistory.map((cName, idx) => <option key={idx} value={cName} />)}</datalist></div>
-                                <div><label className="text-xs text-gray-400">テイク</label><input type="number" value={take} onChange={(e) => setTake(Number(e.target.value))} /></div>
-                            </div>
-
-                            <div className="mb-4">
-                                <label className="text-xs text-gray-400">レコーダー ファイル番号</label>
-                                <input type="text" value={fileNo} onChange={(e) => setFileNo(e.target.value)} placeholder="例: T0123" />
-                            </div>
-
-                            <div className="flex gap-2 mb-4">
-                                <div className={`flex-1 btn ${evaluation === 'OK' ? 'btn-ok' : 'bg-gray-700'}`} onClick={() => setEvaluation('OK')}>OK</div>
-                                <div className={`flex-1 btn ${evaluation === 'KEEP' ? 'btn-keep' : 'bg-gray-700'}`} onClick={() => setEvaluation('KEEP')}>KEEP</div>
-                                <div className={`flex-1 btn ${evaluation === 'NG' ? 'btn-ng' : 'bg-gray-700'}`} onClick={() => setEvaluation('NG')}>NG</div>
-                            </div>
-
-                            <div className="mb-4">
-                                <label className="text-xs text-gray-400">備考 (ノイズ・セリフかぶり等)</label>
-                                <textarea value={memo} onChange={(e) => setMemo(e.target.value)} rows="2"></textarea>
-                            </div>
-
-                            <div className="mb-6">
-                                <label className="text-xs text-gray-400 mb-1 block">マイク / チャンネル (Ch1 - Ch8)</label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {channels.map((ch, idx) => (
-                                        <div key={idx} className="flex items-center">
-                                            <span className="text-xs text-gray-500 w-8">Ch{idx + 1}</span>
-                                            <input type="text" value={ch} onChange={(e) => handleChannelChange(idx, e.target.value)} className="text-sm" placeholder="マイク名" />
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className={`btn w-full ${editingIndex !== null ? 'bg-orange-500 text-white' : 'btn-save'}`} onClick={handleRecordTake}>
-                                {editingIndex !== null ? '修正を反映する' : 'テイクを記録（アプリ内に保存）'}
-                            </div>
-
-                            {history.length > 0 && (
-                                <div className="mt-8">
-                                    <div className="flex justify-between items-center mb-3 border-b border-gray-600 pb-1">
-                                        <h2 className="text-lg font-bold text-gray-300">保存待ち ({history.length}件)</h2>
-                                        <button onClick={handleClearAllHistory} className="text-xs bg-red-900/80 text-red-200 border border-red-600 px-2.5 py-1 rounded font-bold">全削除 🗑️</button>
+                            {/* 左側：入力フォーム */}
+                            <div className="flex-1">
+                                <div className="grid grid-cols-2 gap-2 mb-4">
+                                    <div>
+                                        <label className="text-xs text-gray-400">作品名</label>
+                                        <input type="text" value={project} onChange={handleProjectChange} placeholder="映画タイトルなど" list="project-list" />
+                                        <datalist id="project-list">{projectHistory.map((pName, idx) => <option key={idx} value={pName} />)}</datalist>
                                     </div>
-                                    {history.map((item, index) => {
-                                        let evClass = "history-ok";
-                                        if (item.evaluation === "KEEP") evClass = "history-keep";
-                                        if (item.evaluation === "NG") evClass = "history-ng";
-                                        return (
-                                            <div key={index} className={`history-item ${evClass} flex justify-between items-center gap-2`}>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="font-bold text-sm truncate">
-                                                        Sc:{item.scene} / Cut:{item.cut} / Tk:{item.take} {item.fileNo ? `(` + item.fileNo + `)` : ''}
-                                                        <span className="ml-2 text-xs px-1.5 py-0.5 bg-gray-700 rounded">{item.evaluation}</span>
-                                                    </div>
-                                                    {(item.locationName || item.hashira) && (
-                                                        <div className="text-xs text-blue-300 mt-1 truncate">
-                                                            {item.locationName && <span>📍 {item.locationName} </span>}
-                                                            {item.hashira && <span>📝 {item.hashira}</span>}
-                                                        </div>
-                                                    )}
-                                                    {item.memo && <div className="text-xs text-gray-400 mt-1 truncate">{item.memo}</div>}
-                                                </div>
-                                                <div className="flex items-center gap-1 shrink-0">
-                                                    <button onClick={() => handleEdit(index)} className="text-xs bg-gray-600 text-white px-2 py-1.5 rounded font-bold">修正</button>
-                                                    <button onClick={() => handleDeleteItem(index)} className="text-xs bg-red-800 text-white px-2 py-1.5 rounded font-bold">削除 🗑️</button>
-                                                </div>
+                                    <div>
+                                        <label className="text-xs text-gray-400">日付</label>
+                                        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                                    </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 gap-2 mb-4">
+                                    <div>
+                                        <label className="text-xs text-gray-400">ロケ地</label>
+                                        <input type="text" value={locationName} onChange={(e) => setLocationName(e.target.value)} placeholder="例: 〇〇スタジオ" list="location-list" />
+                                        <datalist id="location-list">{locationHistory.map((loc, idx) => <option key={idx} value={loc} />)}</datalist>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-400">シーンの柱</label>
+                                        <input type="text" value={hashira} onChange={(e) => setHashira(e.target.value)} placeholder="例: 〇〇公園（昼）" list="hashira-list" />
+                                        <datalist id="hashira-list">{hashiraHistory.map((h, idx) => <option key={idx} value={h} />)}</datalist>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-4 gap-2 mb-4">
+                                    <div><label className="text-xs text-gray-400">ロール</label><input type="text" value={roll} onChange={(e) => setRoll(e.target.value)} /></div>
+                                    <div><label className="text-xs text-gray-400">シーン</label><input type="text" value={scene} onChange={(e) => { setScene(e.target.value); setTake(1); }} list="scene-list" /><datalist id="scene-list">{sceneHistory.map((sNum, idx) => <option key={idx} value={sNum} />)}</datalist></div>
+                                    <div><label className="text-xs text-gray-400">カット</label><input type="text" value={cut} onChange={(e) => { setCut(e.target.value); setTake(1); }} list="cut-list" /><datalist id="cut-list">{cutHistory.map((cName, idx) => <option key={idx} value={cName} />)}</datalist></div>
+                                    <div><label className="text-xs text-gray-400">テイク</label><input type="number" value={take} onChange={(e) => setTake(Number(e.target.value))} /></div>
+                                </div>
+
+                                <div className="mb-4">
+                                    <label className="text-xs text-gray-400">レコーダー ファイル番号</label>
+                                    <input type="text" value={fileNo} onChange={(e) => setFileNo(e.target.value)} placeholder="例: T0123" />
+                                </div>
+
+                                <div className="flex gap-2 mb-4">
+                                    <div className={`flex-1 btn ${evaluation === 'OK' ? 'btn-ok' : 'bg-gray-700'}`} onClick={() => setEvaluation('OK')}>OK</div>
+                                    <div className={`flex-1 btn ${evaluation === 'KEEP' ? 'btn-keep' : 'bg-gray-700'}`} onClick={() => setEvaluation('KEEP')}>KEEP</div>
+                                    <div className={`flex-1 btn ${evaluation === 'NG' ? 'btn-ng' : 'bg-gray-700'}`} onClick={() => setEvaluation('NG')}>NG</div>
+                                </div>
+
+                                <div className="mb-4">
+                                    <label className="text-xs text-gray-400">備考 (ノイズ・セリフかぶり等)</label>
+                                    <textarea value={memo} onChange={(e) => setMemo(e.target.value)} rows="2"></textarea>
+                                </div>
+
+                                <div className="mb-6">
+                                    <label className="text-xs text-gray-400 mb-1 block">マイク / チャンネル (Ch1 - Ch8)</label>
+                                    {/* PC版では4列に自動可変 */}
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                        {channels.map((ch, idx) => (
+                                            <div key={idx} className="flex items-center">
+                                                <span className="text-xs text-gray-500 w-8">Ch{idx + 1}</span>
+                                                <input type="text" value={ch} onChange={(e) => handleChannelChange(idx, e.target.value)} className="text-sm" placeholder="マイク名" />
                                             </div>
-                                        )
-                                    })}
-                                    <div className={`btn w-full mt-4 ${isSubmitting ? 'btn-submitting' : 'btn-submit'}`} onClick={handleBatchSubmit}>
-                                        {isSubmitting ? '送信中...' : 'スプレッドシートへ一括送信 🚀'}
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className={`btn w-full ${editingIndex !== null ? 'bg-orange-500 text-white' : 'btn-save'}`} onClick={handleRecordTake}>
+                                    {editingIndex !== null ? '修正を反映する' : 'テイクを記録（アプリ内に保存）'}
+                                </div>
+                            </div>
+
+                            {/* 右側：保存待ち履歴リスト（PC版では右カラム・固定表示） */}
+                            {history.length > 0 && (
+                                <div className="md:w-[350px] lg:w-[450px] shrink-0 mt-8 md:mt-0">
+                                    <div className="md:sticky md:top-4">
+                                        <div className="flex justify-between items-center mb-3 border-b border-gray-600 pb-1">
+                                            <h2 className="text-lg font-bold text-gray-300">保存待ち ({history.length}件)</h2>
+                                            <button onClick={handleClearAllHistory} className="text-xs bg-red-900/80 text-red-200 border border-red-600 px-2.5 py-1 rounded font-bold">全削除 🗑️</button>
+                                        </div>
+                                        
+                                        <div className="max-h-[60vh] md:max-h-[70vh] overflow-y-auto pr-1">
+                                            {history.map((item, index) => {
+                                                let evClass = "history-ok";
+                                                if (item.evaluation === "KEEP") evClass = "history-keep";
+                                                if (item.evaluation === "NG") evClass = "history-ng";
+                                                return (
+                                                    <div key={index} className={`history-item ${evClass} flex justify-between items-center gap-2`}>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="font-bold text-sm truncate">
+                                                                Sc:{item.scene} / Cut:{item.cut} / Tk:{item.take} {item.fileNo ? `(` + item.fileNo + `)` : ''}
+                                                                <span className="ml-2 text-xs px-1.5 py-0.5 bg-gray-700 rounded">{item.evaluation}</span>
+                                                            </div>
+                                                            {(item.locationName || item.hashira) && (
+                                                                <div className="text-xs text-blue-300 mt-1 truncate">
+                                                                    {item.locationName && <span>📍 {item.locationName} </span>}
+                                                                    {item.hashira && <span>📝 {item.hashira}</span>}
+                                                                </div>
+                                                            )}
+                                                            {item.memo && <div className="text-xs text-gray-400 mt-1 truncate">{item.memo}</div>}
+                                                        </div>
+                                                        <div className="flex items-center gap-1 shrink-0">
+                                                            <button onClick={() => handleEdit(index)} className="text-xs bg-gray-600 text-white px-2 py-1.5 rounded font-bold">修正</button>
+                                                            <button onClick={() => handleDeleteItem(index)} className="text-xs bg-red-800 text-white px-2 py-1.5 rounded font-bold">削除 🗑️</button>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                        
+                                        <div className={`btn w-full mt-4 ${isSubmitting ? 'btn-submitting' : 'btn-submit'}`} onClick={handleBatchSubmit}>
+                                            {isSubmitting ? '送信中...' : 'スプレッドシートへ一括送信 🚀'}
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -485,15 +497,15 @@ function doGet(e) {
                     )}
 
                     {currentTab === 'manual' && (
-                        <div className="text-sm text-gray-300 space-y-6">
+                        <div className="text-sm text-gray-300 space-y-6 md:max-w-3xl">
                             
                             {/* アプリ自体の基本的な使い方 */}
                             <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
                                 <h3 className="font-bold text-white text-base mb-2">📌 このアプリの使い方</h3>
                                 <ol className="list-decimal list-inside space-y-3 text-xs text-gray-300">
                                     <li><b>初期設定:</b> 画面左上の「⚙️設定」ボタンを押し、フォルダ名とGoogleドライブのURLを保存します。</li>
-                                    <li><b>テイク記録:</b> ロケ地・シーン・カット・テイク・ファイル番号などを入力し、「テイクを記録」を押します。（※ここで一旦スマホ本体に保存されます）</li>
-                                    <li><b>一括送信:</b> 休憩時などにリスト下の「スプレッドシートへ一括送信🚀」を押すと、指定したドライブフォルダ内にスプレッドシートが自動作成・更新されます。</li>
+                                    <li><b>テイク記録:</b> ロケ地・シーン・カット・テイク・ファイル番号などを入力し、「テイクを記録」を押します。（※ここで一旦端末に保存されます）</li>
+                                    <li><b>一括送信:</b> 休憩時などに「スプレッドシートへ一括送信🚀」を押すと、指定したドライブフォルダ内にスプレッドシートが自動作成・更新されます。</li>
                                     <li><b>修正と削除:</b> 保存待ちリストの各項目にある「修正」ボタンで再編集、「削除🗑️」で消去ができます。</li>
                                 </ol>
                             </div>
