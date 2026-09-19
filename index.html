@@ -33,7 +33,7 @@
 <body>
     <div id="root"></div>
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState } = React;
 
         function App() {
             const loadProjectHistory = () => {
@@ -58,7 +58,6 @@
             const loadFolderName = () => {
                 return localStorage.getItem('targetFolderName') || "";
             };
-            // 未送信の保存待ち履歴をロード
             const loadUnsentHistory = () => {
                 const saved = localStorage.getItem('unsentHistory');
                 return saved ? JSON.parse(saved) : [];
@@ -83,7 +82,6 @@
             const [memo, setMemo] = useState("");
             const [channels, setChannels] = useState(loadChannelHistory());
             
-            // 履歴が変更されたら自動でlocalStorageに保存する
             const [history, setHistory] = useState(loadUnsentHistory());
             const updateHistoryAndSave = (newHistory) => {
                 setHistory(newHistory);
@@ -197,6 +195,25 @@
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             };
 
+            // 個別の履歴を削除
+            const handleDeleteItem = (index) => {
+                if (confirm("この記録を削除しますか？")) {
+                    const newHistory = history.filter((_, i) => i !== index);
+                    updateHistoryAndSave(newHistory);
+                    if (editingIndex === index) {
+                        setEditingIndex(null);
+                    }
+                }
+            };
+
+            // すべての保存待ち履歴を一括削除
+            const handleClearAllHistory = () => {
+                if (confirm("保存待ちのテイクをすべて削除しますか？この操作は元に戻せません。")) {
+                    updateHistoryAndSave([]);
+                    setEditingIndex(null);
+                }
+            };
+
             const handleBatchSubmit = async () => {
                 if (isSubmitting) return;
                 if (history.length === 0) {
@@ -236,7 +253,7 @@
                     
                     if (result.status === "success") {
                         alert(`${history.length}件のテイクをスプレッドシートに送信しました！`);
-                        updateHistoryAndSave([]); // 送信成功したら未送信リストをクリア
+                        updateHistoryAndSave([]); 
                     } else {
                         alert("送信エラー: " + result.message);
                     }
@@ -418,7 +435,16 @@
 
                             {history.length > 0 && (
                                 <div className="mt-8">
-                                    <h2 className="text-lg font-bold text-gray-300 mb-3 border-b border-gray-600 pb-1">保存待ちのテイク ({history.length}件)</h2>
+                                    <div className="flex justify-between items-center mb-3 border-b border-gray-600 pb-1">
+                                        <h2 className="text-lg font-bold text-gray-300">保存待ちのテイク ({history.length}件)</h2>
+                                        <button 
+                                            onClick={handleClearAllHistory} 
+                                            className="text-xs bg-red-900/60 text-red-300 border border-red-700 px-2.5 py-1 rounded hover:bg-red-800 transition"
+                                        >
+                                            🗑️ すべて削除
+                                        </button>
+                                    </div>
+
                                     {history.map((item, index) => {
                                         let evClass = "history-ok";
                                         if (item.evaluation === "KEEP") evClass = "history-keep";
@@ -433,13 +459,16 @@
                                                     </div>
                                                     {item.memo && <div className="text-xs text-gray-400 mt-1">{item.memo}</div>}
                                                 </div>
-                                                <button onClick={() => handleEdit(index)} className="text-xs bg-gray-600 px-3 py-2 rounded">修正</button>
+                                                <div className="flex gap-1">
+                                                    <button onClick={() => handleEdit(index)} className="text-xs bg-gray-600 px-2.5 py-2 rounded">修正</button>
+                                                    <button onClick={() => handleDeleteItem(index)} className="text-xs bg-red-900/80 text-white px-2.5 py-2 rounded">🗑️</button>
+                                                </div>
                                             </div>
                                         )
                                     })}
                                     
                                     <div className={`btn w-full mt-4 ${isSubmitting ? 'btn-submitting' : 'btn-submit'}`} onClick={handleBatchSubmit}>
-                                        {isSubmitting ? '送信する...' : 'スプレッドシートへ一括送信 🚀'}
+                                        {isSubmitting ? '送信中...' : 'スプレッドシートへ一括送信 🚀'}
                                     </div>
                                 </div>
                             )}
