@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>録音部 スクリプト管理</title>
-    <!-- ホーム画面用アイコン（🎙️） -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎙️</text></svg>">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎙️</text></svg>">
     
@@ -27,7 +26,7 @@
         .history-ok { border-color: #4CAF50; }
         .history-keep { border-color: #FFC107; }
         .history-ng { border-color: #F44336; }
-        .modal { background-color: rgba(0,0,0,0.8); position: fixed; top:0; left:0; width:100%; height:100%; display:flex; justify-content:center; align-items:center; z-index:100; }
+        .modal { background-color: rgba(0,0,0,0.8); position: fixed; top:0; left:0; width:100%; height:100%; display:flex; justify-content:center; align-items:center; z-index:100; overflow-y: auto; padding: 20px 0; }
     </style>
 </head>
 <body>
@@ -35,68 +34,101 @@
     <script type="text/babel">
         const { useState } = React;
 
+        const GAS_CODE_STRING = `function doPost(e) {
+  try {
+    var data = JSON.parse(e.postData.contents);
+    var projectName = data.project || "未定_録音スクリプト";
+    var folderId = data.folderId;
+    var records = data.records;
+    
+    if (!records || records.length === 0) return ContentService.createTextOutput(JSON.stringify({"status": "success", "message": "データなし"})).setMimeType(ContentService.MimeType.JSON);
+    if (!folderId) return ContentService.createTextOutput(JSON.stringify({"status": "error", "message": "フォルダID未設定"})).setMimeType(ContentService.MimeType.JSON);
+
+    var folder = DriveApp.getFolderById(folderId);
+    var files = folder.searchFiles("title = '" + projectName + "' and mimeType = 'application/vnd.google-apps.spreadsheet'");
+    var ss = files.hasNext() ? SpreadsheetApp.open(files.next()) : (function(){ var newSs = SpreadsheetApp.create(projectName); DriveApp.getFileById(newSs.getId()).moveTo(folder); return newSs; })();
+    
+    for (var i = 0; i < records.length; i++) {
+      var r = records[i];
+      var dateStr = r.date || "未設定";
+      var sheet = ss.getSheetByName(dateStr);
+      
+      if (!sheet) {
+        sheet = ss.insertSheet(dateStr);
+        sheet.appendRow(["日付", "ロール", "シーン", "カット", "テイク", "ファイルNo", "評価", "備考", "Ch1", "Ch2", "Ch3", "Ch4", "Ch5", "Ch6", "Ch7", "Ch8"]);
+        var defaultSheet = ss.getSheetByName("シート1");
+        if (defaultSheet && ss.getSheets().length > 1) ss.deleteSheet(defaultSheet);
+      }
+      
+      var lastRow = sheet.getLastRow();
+      var targetRow = -1;
+      
+      if (lastRow > 1) {
+        var existingData = sheet.getRange(2, 1, lastRow - 1, 5).getValues();
+        for (var j = 0; j < existingData.length; j++) {
+          var row = existingData[j];
+          if (String(row[0]) === String(r.date) && String(row[1]) === String(r.roll) && String(row[2]) === String(r.scene) && String(row[3]) === String(r.cut) && Number(row[4]) === Number(r.take)) {
+            targetRow = j + 2; break;
+          }
+        }
+      }
+      
+      var rowData = [r.date, r.roll, r.scene, r.cut, r.take, r.fileNo, r.evaluation, r.memo, r.channels[0], r.channels[1], r.channels[2], r.channels[3], r.channels[4], r.channels[5], r.channels[6], r.channels[7]];
+      
+      if (targetRow !== -1) {
+        sheet.getRange(targetRow, 1, 1, rowData.length).setValues([rowData]);
+      } else {
+        sheet.appendRow(rowData);
+        targetRow = sheet.getLastRow();
+      }
+      sheet.getRange(targetRow, 7).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['OK', 'KEEP', 'NG']).build());
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({"status": "success"})).setMimeType(ContentService.MimeType.JSON);
+  } catch(error) {
+    return ContentService.createTextOutput(JSON.stringify({"status": "error", "message": error.message})).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doGet(e) {
+  return ContentService.createTextOutput(JSON.stringify({"status": "active", "message": "GAS is running"})).setMimeType(ContentService.MimeType.JSON);
+}`;
+
         function App() {
-            const loadProjectHistory = () => {
-                const saved = localStorage.getItem('projectHistory');
-                return saved ? JSON.parse(saved) : [];
+            // ローカルストレージからの読み込み関数群
+            const loadState = (key, defaultVal) => {
+                const saved = localStorage.getItem(key);
+                return saved ? JSON.parse(saved) : defaultVal;
             };
-            const loadSceneHistory = () => {
-                const saved = localStorage.getItem('sceneHistory');
-                return saved ? JSON.parse(saved) : [];
-            };
-            const loadCutHistory = () => {
-                const saved = localStorage.getItem('cutHistory');
-                return saved ? JSON.parse(saved) : ["A", "B", "C"];
-            };
-            const loadChannelHistory = () => {
-                const saved = localStorage.getItem('channelHistory');
-                return saved ? JSON.parse(saved) : ["ガン", "ピン1", "", "", "", "", "", ""];
-            };
-            const loadLocationHistory = () => {
-                const saved = localStorage.getItem('locationHistory');
-                return saved ? JSON.parse(saved) : [];
-            };
-            const loadHashiraHistory = () => {
-                const saved = localStorage.getItem('hashiraHistory');
-                return saved ? JSON.parse(saved) : [];
-            };
-            const loadFolderId = () => {
-                return localStorage.getItem('targetFolderId') || "";
-            };
-            const loadFolderName = () => {
-                return localStorage.getItem('targetFolderName') || "";
-            };
-            const loadUnsentHistory = () => {
-                const saved = localStorage.getItem('unsentHistory');
-                return saved ? JSON.parse(saved) : [];
-            };
+
+            const defaultGas = "https://script.google.com/macros/s/AKfycbwfeT4E52_OOscVfqvPM9mn47BdddblwiMGz7D8Ae6cOxPDqdVJip40unCWTaxZSpbS/exec";
 
             const today = new Date().toISOString().split('T')[0];
             const [project, setProject] = useState("");
-            const [projectHistory, setProjectHistory] = useState(loadProjectHistory());
+            const [projectHistory, setProjectHistory] = useState(loadState('projectHistory', []));
             
             const [date, setDate] = useState(today);
             const [locationName, setLocationName] = useState("");
-            const [locationHistory, setLocationHistory] = useState(loadLocationHistory());
+            const [locationHistory, setLocationHistory] = useState(loadState('locationHistory', []));
             
             const [hashira, setHashira] = useState("");
-            const [hashiraHistory, setHashiraHistory] = useState(loadHashiraHistory());
+            const [hashiraHistory, setHashiraHistory] = useState(loadState('hashiraHistory', []));
 
             const [roll, setRoll] = useState("R-01");
             const [scene, setScene] = useState("1");
-            const [sceneHistory, setSceneHistory] = useState(loadSceneHistory());
+            const [sceneHistory, setSceneHistory] = useState(loadState('sceneHistory', []));
             
             const [cut, setCut] = useState("A");
-            const [cutHistory, setCutHistory] = useState(loadCutHistory());
+            const [cutHistory, setCutHistory] = useState(loadState('cutHistory', ["A", "B", "C"]));
             
             const [take, setTake] = useState(1);
             const [fileNo, setFileNo] = useState("");
             
             const [evaluation, setEvaluation] = useState("OK");
             const [memo, setMemo] = useState("");
-            const [channels, setChannels] = useState(loadChannelHistory());
+            const [channels, setChannels] = useState(loadState('channelHistory', ["ガン", "ピン1", "", "", "", "", "", ""]));
             
-            const [history, setHistory] = useState(loadUnsentHistory());
+            const [history, setHistory] = useState(loadState('unsentHistory', []));
             const updateHistoryAndSave = (newHistory) => {
                 setHistory(newHistory);
                 localStorage.setItem('unsentHistory', JSON.stringify(newHistory));
@@ -107,24 +139,20 @@
 
             const [currentTab, setCurrentTab] = useState("recorder");
             const [showSettings, setShowSettings] = useState(false);
-            const [folderInput, setFolderInput] = useState(loadFolderId());
-            const [folderNameInput, setFolderNameInput] = useState(loadFolderName());
+            
+            // 設定画面用のState
+            const [folderInput, setFolderInput] = useState(localStorage.getItem('targetFolderId') || "");
+            const [folderNameInput, setFolderNameInput] = useState(localStorage.getItem('targetFolderName') || "");
+            const [gasUrlInput, setGasUrlInput] = useState(localStorage.getItem('gasUrl') || defaultGas);
 
             const handleFolderInputChange = (e) => {
                 const input = e.target.value;
                 setFolderInput(input);
                 if (!input.trim()) return;
-
                 const folderMatch = input.match(/\/folders\/([a-zA-Z0-9_-]+)/);
-                if (folderMatch && folderMatch[1]) {
-                    setFolderInput(folderMatch[1]);
-                    return;
-                }
+                if (folderMatch && folderMatch[1]) { setFolderInput(folderMatch[1]); return; }
                 const queryMatch = input.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-                if (queryMatch && queryMatch[1]) {
-                    setFolderInput(queryMatch[1]);
-                    return;
-                }
+                if (queryMatch && queryMatch[1]) { setFolderInput(queryMatch[1]); return; }
             };
 
             const handleChannelChange = (index, value) => {
@@ -147,16 +175,18 @@
             const saveSettings = () => {
                 localStorage.setItem('targetFolderId', folderInput.trim());
                 localStorage.setItem('targetFolderName', folderNameInput.trim());
+                localStorage.setItem('gasUrl', gasUrlInput.trim());
                 setShowSettings(false);
-                alert("保存先設定を更新しました！");
+                alert("保存先・GAS設定を更新しました！");
             };
 
-            const openFlightradar = () => {
-                window.open("https://www.flightradar24.com/", "_blank");
-            };
-
-            const openTenki = () => {
-                window.open("https://tenki.jp/", "_blank");
+            const openFlightradar = () => window.open("https://www.flightradar24.com/", "_blank");
+            const openTenki = () => window.open("https://tenki.jp/", "_blank");
+            
+            const copyGasCode = () => {
+                navigator.clipboard.writeText(GAS_CODE_STRING)
+                    .then(() => alert("GASのコードをコピーしました！"))
+                    .catch(() => alert("コピーに失敗しました。手動で選択してコピーしてください。"));
             };
 
             const handleRecordTake = () => {
@@ -231,14 +261,12 @@
                 if (confirm("この記録を削除しますか？")) {
                     const newHistory = history.filter((_, i) => i !== index);
                     updateHistoryAndSave(newHistory);
-                    if (editingIndex === index) {
-                        setEditingIndex(null);
-                    }
+                    if (editingIndex === index) setEditingIndex(null);
                 }
             };
 
             const handleClearAllHistory = () => {
-                if (confirm("保存待ちのテイクをすべて削除しますか？この操作は元に戻せません。")) {
+                if (confirm("保存待ちのテイクをすべて削除しますか？")) {
                     updateHistoryAndSave([]);
                     setEditingIndex(null);
                 }
@@ -246,65 +274,52 @@
 
             const handleBatchSubmit = async () => {
                 if (isSubmitting) return;
-                if (history.length === 0) {
-                    alert("送信するデータがありません。");
-                    return;
-                }
-                if (!project) {
-                    alert("作品名を入力してください。");
-                    return;
-                }
+                if (history.length === 0) return alert("送信するデータがありません。");
+                if (!project) return alert("作品名を入力してください。");
 
                 const currentFolderId = localStorage.getItem('targetFolderId');
+                const currentGasUrl = localStorage.getItem('gasUrl') || defaultGas;
+                
                 if (!currentFolderId) {
-                    alert("保存先のGoogleドライブ フォルダIDが設定されていません。\n右上の⚙️設定ボタンからフォルダIDを設定してください。");
+                    alert("保存先のGoogleドライブ フォルダIDが設定されていません。⚙️設定から入力してください。");
+                    setShowSettings(true);
+                    return;
+                }
+                if (!currentGasUrl) {
+                    alert("GAS URLが設定されていません。⚙️設定から入力してください。");
                     setShowSettings(true);
                     return;
                 }
 
-                const gasUrl = "https://script.google.com/macros/s/AKfycbwfeT4E52_OOscVfqvPM9mn47BdddblwiMGz7D8Ae6cOxPDqdVJip40unCWTaxZSpbS/exec";
-
                 setIsSubmitting(true);
                 
-                // 送信前に、ロケ地・柱が入力されていれば「備考」欄に合体させる
                 const payloadRecords = [...history].reverse().map(item => {
                     let combinedMemo = item.memo || "";
                     let tags = [];
-                    
                     if (item.locationName) tags.push(`📍${item.locationName}`);
                     if (item.hashira) tags.push(`柱:${item.hashira}`);
-                    
                     let prefix = tags.length > 0 ? `[${tags.join(" ")}] ` : "";
-                    
-                    return {
-                        ...item,
-                        memo: prefix + combinedMemo
-                    };
+                    return { ...item, memo: prefix + combinedMemo };
                 });
                 
-                const payload = {
-                    project: project,
-                    folderId: currentFolderId,
-                    records: payloadRecords
-                };
+                const payload = { project: project, folderId: currentFolderId, records: payloadRecords };
 
                 try {
-                    const response = await fetch(gasUrl, {
+                    const response = await fetch(currentGasUrl, {
                         method: 'POST',
                         headers: { 'Content-Type': 'text/plain' },
                         body: JSON.stringify(payload)
                     });
                     
                     const result = await response.json();
-                    
                     if (result.status === "success") {
-                        alert(`${history.length}件のテイクをスプレッドシートに送信しました！`);
+                        alert(`${history.length}件のテイクを送信しました！`);
                         updateHistoryAndSave([]); 
                     } else {
                         alert("送信エラー: " + result.message);
                     }
                 } catch (error) {
-                    alert("送信に失敗しました。電波状況を確認してください。\n(データはアプリ内に残っています)");
+                    alert("送信に失敗しました。電波状況を確認してください。");
                 } finally {
                     setIsSubmitting(false);
                 }
@@ -322,57 +337,38 @@
                             </button>
                         </div>
                         <div className="flex gap-1">
-                            <button 
-                                onClick={() => setCurrentTab("recorder")} 
-                                className={`px-3 py-1 rounded text-xs font-bold ${currentTab === 'recorder' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}
-                            >
-                                📝 記録
-                            </button>
-                            <button 
-                                onClick={() => setCurrentTab("manual")} 
-                                className={`px-3 py-1 rounded text-xs font-bold ${currentTab === 'manual' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}
-                            >
-                                📖 使い方
-                            </button>
-                            <button onClick={openFlightradar} className="bg-blue-900 text-white px-2 py-1 rounded text-xs" title="Flightradar24">
-                                ✈️
-                            </button>
-                            <button onClick={openTenki} className="bg-orange-600 text-white px-2 py-1 rounded text-xs" title="tenki.jp">
-                                🌤️
-                            </button>
+                            <button onClick={() => setCurrentTab("recorder")} className={`px-3 py-1 rounded text-xs font-bold ${currentTab === 'recorder' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>📝 記録</button>
+                            <button onClick={() => setCurrentTab("manual")} className={`px-3 py-1 rounded text-xs font-bold ${currentTab === 'manual' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>📖 使い方</button>
+                            <button onClick={openFlightradar} className="bg-blue-900 text-white px-2 py-1 rounded text-xs">✈️</button>
+                            <button onClick={openTenki} className="bg-orange-600 text-white px-2 py-1 rounded text-xs">🌤️</button>
                         </div>
                     </div>
 
-                    {/* 保存先フォルダ名の表示バー */}
                     <div className="bg-gray-800 px-3 py-1.5 rounded mb-4 text-xs flex justify-between items-center border border-gray-700">
                         <span className="text-gray-400">📁 保存先:</span>
                         <span className="text-blue-300 font-bold truncate max-w-[260px]">
-                            {currentFolderName ? currentFolderName : "（未設定：設定から入力してください）"}
+                            {currentFolderName ? currentFolderName : "（未設定）"}
                         </span>
                     </div>
 
                     {showSettings && (
                         <div className="modal p-4">
-                            <div className="bg-gray-800 p-4 rounded-lg w-full max-w-sm border border-gray-700">
-                                <h2 className="text-lg font-bold mb-2 text-white">⚙️ 保存先設定</h2>
+                            <div className="bg-gray-800 p-4 rounded-lg w-full max-w-sm border border-gray-700 max-h-[90vh] overflow-y-auto">
+                                <h2 className="text-lg font-bold mb-4 text-white border-b border-gray-600 pb-2">⚙️ 詳細設定</h2>
                                 
-                                <label className="text-xs text-gray-400 block mb-1">フォルダ名（わかりやすい名前）</label>
-                                <input 
-                                    type="text" 
-                                    value={folderNameInput} 
-                                    onChange={(e) => setFolderNameInput(e.target.value)} 
-                                    placeholder="例: 〇〇映画 録音データ" 
-                                    className="mb-3 text-sm"
-                                />
+                                <div className="mb-4">
+                                    <label className="text-xs text-blue-300 font-bold block mb-1">📁 スプレッドシートの保存先設定</label>
+                                    <label className="text-xs text-gray-400 block mb-1">フォルダ名（わかりやすい名前）</label>
+                                    <input type="text" value={folderNameInput} onChange={(e) => setFolderNameInput(e.target.value)} placeholder="例: 〇〇映画 録音データ" className="mb-2 text-sm" />
+                                    <label className="text-xs text-gray-400 block mb-1">Googleドライブ フォルダURL</label>
+                                    <textarea value={folderInput} onChange={handleFolderInputChange} placeholder="https://drive.google.com/drive/folders/..." rows="2" className="text-sm font-mono"></textarea>
+                                </div>
 
-                                <label className="text-xs text-gray-400 block mb-1">Googleドライブ フォルダURL</label>
-                                <textarea 
-                                    value={folderInput} 
-                                    onChange={handleFolderInputChange} 
-                                    placeholder="https://drive.google.com/drive/folders/..." 
-                                    rows="2"
-                                    className="mb-4 text-sm font-mono"
-                                ></textarea>
+                                <div className="mb-4 pt-3 border-t border-gray-700">
+                                    <label className="text-xs text-green-400 font-bold block mb-1">🔌 システム連携設定 (GAS)</label>
+                                    <label className="text-xs text-gray-400 block mb-1">GAS Webアプリ URL <br/>※他の人が独立して使う場合は書き換えてください。</label>
+                                    <textarea value={gasUrlInput} onChange={(e) => setGasUrlInput(e.target.value)} placeholder="https://script.google.com/macros/s/..." rows="3" className="text-xs font-mono"></textarea>
+                                </div>
 
                                 <div className="flex gap-2">
                                     <button onClick={saveSettings} className="flex-1 bg-blue-600 text-white py-2 rounded font-bold">保存する</button>
@@ -387,18 +383,8 @@
                             <div className="grid grid-cols-2 gap-2 mb-4">
                                 <div>
                                     <label className="text-xs text-gray-400">作品名</label>
-                                    <input 
-                                        type="text" 
-                                        value={project} 
-                                        onChange={handleProjectChange} 
-                                        placeholder="映画タイトルなど" 
-                                        list="project-list"
-                                    />
-                                    <datalist id="project-list">
-                                        {projectHistory.map((pName, idx) => (
-                                            <option key={idx} value={pName} />
-                                        ))}
-                                    </datalist>
+                                    <input type="text" value={project} onChange={handleProjectChange} placeholder="映画タイトルなど" list="project-list" />
+                                    <datalist id="project-list">{projectHistory.map((pName, idx) => <option key={idx} value={pName} />)}</datalist>
                                 </div>
                                 <div>
                                     <label className="text-xs text-gray-400">日付</label>
@@ -409,83 +395,26 @@
                             <div className="grid grid-cols-2 gap-2 mb-4">
                                 <div>
                                     <label className="text-xs text-gray-400">ロケ地</label>
-                                    <input 
-                                        type="text" 
-                                        value={locationName} 
-                                        onChange={(e) => setLocationName(e.target.value)} 
-                                        placeholder="例: 〇〇スタジオ" 
-                                        list="location-list"
-                                    />
-                                    <datalist id="location-list">
-                                        {locationHistory.map((loc, idx) => (
-                                            <option key={idx} value={loc} />
-                                        ))}
-                                    </datalist>
+                                    <input type="text" value={locationName} onChange={(e) => setLocationName(e.target.value)} placeholder="例: 〇〇スタジオ" list="location-list" />
+                                    <datalist id="location-list">{locationHistory.map((loc, idx) => <option key={idx} value={loc} />)}</datalist>
                                 </div>
                                 <div>
                                     <label className="text-xs text-gray-400">シーンの柱</label>
-                                    <input 
-                                        type="text" 
-                                        value={hashira} 
-                                        onChange={(e) => setHashira(e.target.value)} 
-                                        placeholder="例: 〇〇公園（昼）" 
-                                        list="hashira-list"
-                                    />
-                                    <datalist id="hashira-list">
-                                        {hashiraHistory.map((h, idx) => (
-                                            <option key={idx} value={h} />
-                                        ))}
-                                    </datalist>
+                                    <input type="text" value={hashira} onChange={(e) => setHashira(e.target.value)} placeholder="例: 〇〇公園（昼）" list="hashira-list" />
+                                    <datalist id="hashira-list">{hashiraHistory.map((h, idx) => <option key={idx} value={h} />)}</datalist>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-4 gap-2 mb-4">
-                                <div>
-                                    <label className="text-xs text-gray-400">ロール</label>
-                                    <input type="text" value={roll} onChange={(e) => setRoll(e.target.value)} />
-                                </div>
-                                <div>
-                                    <label className="text-xs text-gray-400">シーン</label>
-                                    <input 
-                                        type="text" 
-                                        value={scene} 
-                                        onChange={(e) => { setScene(e.target.value); setTake(1); }} 
-                                        list="scene-list"
-                                    />
-                                    <datalist id="scene-list">
-                                        {sceneHistory.map((sNum, idx) => (
-                                            <option key={idx} value={sNum} />
-                                        ))}
-                                    </datalist>
-                                </div>
-                                <div>
-                                    <label className="text-xs text-gray-400">カット</label>
-                                    <input 
-                                        type="text" 
-                                        value={cut} 
-                                        onChange={(e) => { setCut(e.target.value); setTake(1); }} 
-                                        list="cut-list"
-                                    />
-                                    <datalist id="cut-list">
-                                        {cutHistory.map((cName, idx) => (
-                                            <option key={idx} value={cName} />
-                                        ))}
-                                    </datalist>
-                                </div>
-                                <div>
-                                    <label className="text-xs text-gray-400">テイク</label>
-                                    <input type="number" value={take} onChange={(e) => setTake(Number(e.target.value))} />
-                                </div>
+                                <div><label className="text-xs text-gray-400">ロール</label><input type="text" value={roll} onChange={(e) => setRoll(e.target.value)} /></div>
+                                <div><label className="text-xs text-gray-400">シーン</label><input type="text" value={scene} onChange={(e) => { setScene(e.target.value); setTake(1); }} list="scene-list" /><datalist id="scene-list">{sceneHistory.map((sNum, idx) => <option key={idx} value={sNum} />)}</datalist></div>
+                                <div><label className="text-xs text-gray-400">カット</label><input type="text" value={cut} onChange={(e) => { setCut(e.target.value); setTake(1); }} list="cut-list" /><datalist id="cut-list">{cutHistory.map((cName, idx) => <option key={idx} value={cName} />)}</datalist></div>
+                                <div><label className="text-xs text-gray-400">テイク</label><input type="number" value={take} onChange={(e) => setTake(Number(e.target.value))} /></div>
                             </div>
 
                             <div className="mb-4">
-                                <label className="text-xs text-gray-400">レコーダー ファイル番号 (例: T0123)</label>
-                                <input 
-                                    type="text" 
-                                    value={fileNo} 
-                                    onChange={(e) => setFileNo(e.target.value)} 
-                                    placeholder="例: T0123" 
-                                />
+                                <label className="text-xs text-gray-400">レコーダー ファイル番号</label>
+                                <input type="text" value={fileNo} onChange={(e) => setFileNo(e.target.value)} placeholder="例: T0123" />
                             </div>
 
                             <div className="flex gap-2 mb-4">
@@ -519,19 +448,12 @@
                                 <div className="mt-8">
                                     <div className="flex justify-between items-center mb-3 border-b border-gray-600 pb-1">
                                         <h2 className="text-lg font-bold text-gray-300">保存待ち ({history.length}件)</h2>
-                                        <button 
-                                            onClick={handleClearAllHistory} 
-                                            className="text-xs bg-red-900/80 text-red-200 border border-red-600 px-2.5 py-1 rounded font-bold"
-                                        >
-                                            全削除 🗑️
-                                        </button>
+                                        <button onClick={handleClearAllHistory} className="text-xs bg-red-900/80 text-red-200 border border-red-600 px-2.5 py-1 rounded font-bold">全削除 🗑️</button>
                                     </div>
-
                                     {history.map((item, index) => {
                                         let evClass = "history-ok";
                                         if (item.evaluation === "KEEP") evClass = "history-keep";
                                         if (item.evaluation === "NG") evClass = "history-ng";
-
                                         return (
                                             <div key={index} className={`history-item ${evClass} flex justify-between items-center gap-2`}>
                                                 <div className="flex-1 min-w-0">
@@ -539,15 +461,12 @@
                                                         Sc:{item.scene} / Cut:{item.cut} / Tk:{item.take} {item.fileNo ? `(` + item.fileNo + `)` : ''}
                                                         <span className="ml-2 text-xs px-1.5 py-0.5 bg-gray-700 rounded">{item.evaluation}</span>
                                                     </div>
-                                                    
-                                                    {/* ロケ地や柱がある場合のみ表示 */}
                                                     {(item.locationName || item.hashira) && (
                                                         <div className="text-xs text-blue-300 mt-1 truncate">
                                                             {item.locationName && <span>📍 {item.locationName} </span>}
                                                             {item.hashira && <span>📝 {item.hashira}</span>}
                                                         </div>
                                                     )}
-
                                                     {item.memo && <div className="text-xs text-gray-400 mt-1 truncate">{item.memo}</div>}
                                                 </div>
                                                 <div className="flex items-center gap-1 shrink-0">
@@ -557,7 +476,6 @@
                                             </div>
                                         )
                                     })}
-                                    
                                     <div className={`btn w-full mt-4 ${isSubmitting ? 'btn-submitting' : 'btn-submit'}`} onClick={handleBatchSubmit}>
                                         {isSubmitting ? '送信中...' : 'スプレッドシートへ一括送信 🚀'}
                                     </div>
@@ -568,14 +486,40 @@
 
                     {currentTab === 'manual' && (
                         <div className="text-sm text-gray-300 space-y-4">
+                            
                             <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-                                <h3 className="font-bold text-white text-base mb-2">📌 このアプリの使い方</h3>
-                                <ol className="list-decimal list-inside space-y-2 text-xs text-gray-300">
-                                    <li><b>初期設定:</b> 画面左上の「⚙️設定」ボタンを押し、フォルダ名とGoogleドライブのURLを保存します。</li>
-                                    <li><b>テイク記録:</b> シーン・カット・テイク・ファイル番号などを入力し、「テイクを記録」を押します。</li>
-                                    <li><b>一括送信:</b> 休憩時などに「スプレッドシートへ一括送信」を押すと、指定したドライブフォルダ内にスプレッドシートが自動作成されます。</li>
+                                <h3 className="font-bold text-blue-300 text-base mb-2">👤 他の人が独立して使うための準備</h3>
+                                <p className="text-xs text-gray-400 mb-4">このアプリURLを別の人が自分専用（自分のGoogleアカウント経由）で使う場合の手順です。</p>
+                                
+                                <ol className="list-decimal list-inside space-y-4 text-xs text-gray-300">
+                                    <li className="font-bold text-sm text-white">専用のGASを作成する</li>
+                                    <div className="pl-4">
+                                        <p className="mb-2">1. スマホやPCで <a href="https://script.google.com/" target="_blank" className="text-blue-400 underline">Google Apps Script</a> にアクセスし、「新しいプロジェクト」を作成します。</p>
+                                        <p className="mb-2">2. もともと書かれているコードをすべて消して、以下のコードを貼り付けます。</p>
+                                        
+                                        <div className="relative mb-2">
+                                            <textarea readOnly value={GAS_CODE_STRING} rows="5" className="w-full text-[10px] font-mono bg-gray-900 p-2 rounded border border-gray-600"></textarea>
+                                            <button onClick={copyGasCode} className="absolute top-2 right-2 bg-blue-600 text-white px-2 py-1 rounded text-xs font-bold shadow">コピー</button>
+                                        </div>
+
+                                        <p className="mb-2">3. 右上の「デプロイ」＞「新しいデプロイ」を選択します。</p>
+                                        <p className="mb-2">4. 種類の選択（歯車）で「ウェブアプリ」を選びます。</p>
+                                        <p className="mb-2 text-red-300 font-bold">5. 【重要】アクセスできるユーザーを「全員 (Anyone)」にしてデプロイします。</p>
+                                        <p>6. 発行された「ウェブアプリのURL」をコピーします。</p>
+                                    </div>
+
+                                    <li className="font-bold text-sm text-white mt-4">アプリにURLを設定する</li>
+                                    <div className="pl-4">
+                                        <p>画面左上の「⚙️設定」を開き、一番下の「GAS Webアプリ URL」の欄に、先ほどコピーした自分のURLを貼り付けて保存します。</p>
+                                    </div>
+                                    
+                                    <li className="font-bold text-sm text-white mt-4">ドライブの保存先を決める</li>
+                                    <div className="pl-4">
+                                        <p>自分のGoogleドライブで保存したいフォルダを作り、そのフォルダのURLを「⚙️設定」のドライブURL欄に入力すれば完了です！</p>
+                                    </div>
                                 </ol>
                             </div>
+
                         </div>
                     )}
                 </div>
