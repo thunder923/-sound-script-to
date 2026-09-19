@@ -95,7 +95,6 @@ function doGet(e) {
 }`;
 
         function App() {
-            // ローカルストレージからの読み込み関数群
             const loadState = (key, defaultVal) => {
                 const saved = localStorage.getItem(key);
                 return saved ? JSON.parse(saved) : defaultVal;
@@ -124,6 +123,11 @@ function doGet(e) {
             const [take, setTake] = useState(1);
             const [fileNo, setFileNo] = useState("");
             
+            // 追加：カメラ情報 & カメラクリップ名
+            const [cameraInfo, setCameraInfo] = useState("");
+            const [cameraHistory, setCameraHistory] = useState(loadState('cameraHistory', ["Aカメ", "Bカメ"]));
+            const [camClip, setCamClip] = useState("");
+            
             const [evaluation, setEvaluation] = useState("OK");
             const [memo, setMemo] = useState("");
             const [channels, setChannels] = useState(loadState('channelHistory', ["ガン", "ピン1", "", "", "", "", "", ""]));
@@ -140,7 +144,6 @@ function doGet(e) {
             const [currentTab, setCurrentTab] = useState("recorder");
             const [showSettings, setShowSettings] = useState(false);
             
-            // 設定画面用のState
             const [folderInput, setFolderInput] = useState(localStorage.getItem('targetFolderId') || "");
             const [folderNameInput, setFolderNameInput] = useState(localStorage.getItem('targetFolderName') || "");
             const [gasUrlInput, setGasUrlInput] = useState(localStorage.getItem('gasUrl') || defaultGas);
@@ -186,11 +189,11 @@ function doGet(e) {
             const copyGasCode = () => {
                 navigator.clipboard.writeText(GAS_CODE_STRING)
                     .then(() => alert("GASのコードをコピーしました！"))
-                    .catch(() => alert("コピーに失敗しました。手動で選択してコピーしてください。"));
+                    .catch(() => alert("コピーに失敗しました。"));
             };
 
             const handleRecordTake = () => {
-                const currentData = { project, date, locationName, hashira, roll, scene, cut, take, fileNo, evaluation, memo, channels: [...channels] };
+                const currentData = { project, date, locationName, hashira, roll, scene, cut, take, fileNo, cameraInfo, camClip, evaluation, memo, channels: [...channels] };
                 
                 if (project && !projectHistory.includes(project)) {
                     const newProjHistory = [project, ...projectHistory];
@@ -208,6 +211,12 @@ function doGet(e) {
                     const newHashiraHistory = [hashira, ...hashiraHistory];
                     setHashiraHistory(newHashiraHistory);
                     localStorage.setItem('hashiraHistory', JSON.stringify(newHashiraHistory));
+                }
+
+                if (cameraInfo && !cameraHistory.includes(cameraInfo)) {
+                    const newCamHistory = [cameraInfo, ...cameraHistory];
+                    setCameraHistory(newCamHistory);
+                    localStorage.setItem('cameraHistory', JSON.stringify(newCamHistory));
                 }
 
                 if (scene && !sceneHistory.includes(scene)) {
@@ -233,6 +242,7 @@ function doGet(e) {
                     setTake(prev => prev + 1);
                 }
                 
+                setCamClip(""); // クリップ名は連番や毎回変わるのでリセット
                 setFileNo("");
                 setMemo("");
                 setEvaluation("OK");
@@ -249,6 +259,8 @@ function doGet(e) {
                 setCut(item.cut);
                 setTake(item.take);
                 setFileNo(item.fileNo || "");
+                setCameraInfo(item.cameraInfo || "");
+                setCamClip(item.camClip || "");
                 setEvaluation(item.evaluation);
                 setMemo(item.memo);
                 setChannels([...item.channels]);
@@ -298,6 +310,9 @@ function doGet(e) {
                     let tags = [];
                     if (item.locationName) tags.push(`📍${item.locationName}`);
                     if (item.hashira) tags.push(`柱:${item.hashira}`);
+                    if (item.cameraInfo) tags.push(`🎥${item.cameraInfo}`);
+                    if (item.camClip) tags.push(`ｸﾘｯﾌﾟ:${item.camClip}`);
+                    
                     let prefix = tags.length > 0 ? `[${tags.join(" ")}] ` : "";
                     return { ...item, memo: prefix + combinedMemo };
                 });
@@ -366,7 +381,7 @@ function doGet(e) {
 
                                 <div className="mb-4 pt-3 border-t border-gray-700">
                                     <label className="text-xs text-green-400 font-bold block mb-1">🔌 システム連携設定 (GAS)</label>
-                                    <label className="text-xs text-gray-400 block mb-1">GAS Webアプリ URL <br/>※他の人が独立して使う場合は書き換えてください。</label>
+                                    <label className="text-xs text-gray-400 block mb-1">GAS Webアプリ URL</label>
                                     <textarea value={gasUrlInput} onChange={(e) => setGasUrlInput(e.target.value)} placeholder="https://script.google.com/macros/s/..." rows="3" className="text-xs font-mono"></textarea>
                                 </div>
 
@@ -415,6 +430,18 @@ function doGet(e) {
                                     <div><label className="text-xs text-gray-400">テイク</label><input type="number" value={take} onChange={(e) => setTake(Number(e.target.value))} /></div>
                                 </div>
 
+                                <div className="grid grid-cols-2 gap-2 mb-4">
+                                    <div>
+                                        <label className="text-xs text-gray-400">カメラ情報</label>
+                                        <input type="text" value={cameraInfo} onChange={(e) => setCameraInfo(e.target.value)} placeholder="例: Aカメ" list="camera-list" />
+                                        <datalist id="camera-list">{cameraHistory.map((c, idx) => <option key={idx} value={c} />)}</datalist>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-400">カメラ クリップ名</label>
+                                        <input type="text" value={camClip} onChange={(e) => setCamClip(e.target.value)} placeholder="例: C001" />
+                                    </div>
+                                </div>
+
                                 <div className="mb-4">
                                     <label className="text-xs text-gray-400">レコーダー ファイル番号</label>
                                     <input type="text" value={fileNo} onChange={(e) => setFileNo(e.target.value)} placeholder="例: T0123" />
@@ -433,7 +460,6 @@ function doGet(e) {
 
                                 <div className="mb-6">
                                     <label className="text-xs text-gray-400 mb-1 block">マイク / チャンネル (Ch1 - Ch8)</label>
-                                    {/* PC版では4列に自動可変 */}
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                                         {channels.map((ch, idx) => (
                                             <div key={idx} className="flex items-center">
@@ -449,7 +475,7 @@ function doGet(e) {
                                 </div>
                             </div>
 
-                            {/* 右側：保存待ち履歴リスト（PC版では右カラム・固定表示） */}
+                            {/* 右側：保存待ち履歴リスト */}
                             {history.length > 0 && (
                                 <div className="md:w-[350px] lg:w-[450px] shrink-0 mt-8 md:mt-0">
                                     <div className="md:sticky md:top-4">
@@ -470,10 +496,12 @@ function doGet(e) {
                                                                 Sc:{item.scene} / Cut:{item.cut} / Tk:{item.take} {item.fileNo ? `(` + item.fileNo + `)` : ''}
                                                                 <span className="ml-2 text-xs px-1.5 py-0.5 bg-gray-700 rounded">{item.evaluation}</span>
                                                             </div>
-                                                            {(item.locationName || item.hashira) && (
+                                                            {(item.locationName || item.hashira || item.cameraInfo || item.camClip) && (
                                                                 <div className="text-xs text-blue-300 mt-1 truncate">
                                                                     {item.locationName && <span>📍 {item.locationName} </span>}
-                                                                    {item.hashira && <span>📝 {item.hashira}</span>}
+                                                                    {item.hashira && <span>📝 {item.hashira} </span>}
+                                                                    {item.cameraInfo && <span>🎥 {item.cameraInfo} </span>}
+                                                                    {item.camClip && <span>[ｸﾘｯﾌﾟ:{item.camClip}]</span>}
                                                                 </div>
                                                             )}
                                                             {item.memo && <div className="text-xs text-gray-400 mt-1 truncate">{item.memo}</div>}
@@ -498,52 +526,37 @@ function doGet(e) {
 
                     {currentTab === 'manual' && (
                         <div className="text-sm text-gray-300 space-y-6 md:max-w-3xl">
-                            
-                            {/* アプリ自体の基本的な使い方 */}
                             <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
                                 <h3 className="font-bold text-white text-base mb-2">📌 このアプリの使い方</h3>
                                 <ol className="list-decimal list-inside space-y-3 text-xs text-gray-300">
                                     <li><b>初期設定:</b> 画面左上の「⚙️設定」ボタンを押し、フォルダ名とGoogleドライブのURLを保存します。</li>
-                                    <li><b>テイク記録:</b> ロケ地・シーン・カット・テイク・ファイル番号などを入力し、「テイクを記録」を押します。（※ここで一旦端末に保存されます）</li>
-                                    <li><b>一括送信:</b> 休憩時などに「スプレッドシートへ一括送信🚀」を押すと、指定したドライブフォルダ内にスプレッドシートが自動作成・更新されます。</li>
-                                    <li><b>修正と削除:</b> 保存待ちリストの各項目にある「修正」ボタンで再編集、「削除🗑️」で消去ができます。</li>
+                                    <li><b>テイク記録:</b> ロケ地・シーン・カット・テイク・カメラ情報・クリップ名などを入力し、「テイクを記録」を押します。</li>
+                                    <li><b>一括送信:</b> 「スプレッドシートへ一括送信🚀」を押すと、指定したドライブフォルダ内にスプレッドシートが自動作成・更新されます。</li>
                                 </ol>
                             </div>
 
-                            {/* 独立使用の準備（GAS設定） */}
                             <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
                                 <h3 className="font-bold text-blue-300 text-base mb-2">👤 他の人が独立して使うための準備</h3>
-                                <p className="text-xs text-gray-400 mb-4">このアプリURLを別の人が自分専用（自分のGoogleアカウント経由）で使う場合の手順です。</p>
-                                
+                                <p className="text-xs text-gray-400 mb-4">このアプリURLを別の人が自分専用の環境で使う場合の手順です。</p>
                                 <ol className="list-decimal list-inside space-y-4 text-xs text-gray-300">
                                     <li className="font-bold text-sm text-white">専用のGASを作成する</li>
                                     <div className="pl-4 space-y-2">
-                                        <p>1. スマホやPCで <a href="https://script.google.com/" target="_blank" className="text-blue-400 underline">Google Apps Script</a> にアクセスし、「新しいプロジェクト」を作成します。</p>
-                                        <p>2. もともと書かれているコードをすべて消して、以下のコードを貼り付けます。</p>
-                                        
+                                        <p>1. <a href="https://script.google.com/" target="_blank" className="text-blue-400 underline">Google Apps Script</a> にアクセスし、新しいプロジェクトを作成します。</p>
+                                        <p>2. コードをすべて消して、以下のコードを貼り付けます。</p>
                                         <div className="relative">
                                             <textarea readOnly value={GAS_CODE_STRING} rows="5" className="w-full text-[10px] font-mono bg-gray-900 p-2 rounded border border-gray-600"></textarea>
                                             <button onClick={copyGasCode} className="absolute top-2 right-2 bg-blue-600 text-white px-2 py-1 rounded text-xs font-bold shadow hover:bg-blue-500">コピー</button>
                                         </div>
-
-                                        <p>3. 右上の「デプロイ」＞「新しいデプロイ」を選択します。</p>
-                                        <p>4. 種類の選択（歯車）で「ウェブアプリ」を選びます。</p>
-                                        <p className="text-red-300 font-bold">5. 【重要】アクセスできるユーザーを「全員 (Anyone)」にしてデプロイします。</p>
-                                        <p>6. 発行された「ウェブアプリのURL」をコピーします。</p>
+                                        <p>3. 右上の「デプロイ」＞「新しいデプロイ」＞「ウェブアプリ」を選択します。</p>
+                                        <p className="text-red-300 font-bold">4. アクセスできるユーザーを「全員 (Anyone)」にしてデプロイします。</p>
+                                        <p>5. 発行されたURLをコピーします。</p>
                                     </div>
-
                                     <li className="font-bold text-sm text-white mt-4">アプリにURLを設定する</li>
                                     <div className="pl-4">
-                                        <p>画面左上の「⚙️設定」を開き、一番下の「GAS Webアプリ URL」の欄に、先ほどコピーした自分のURLを貼り付けて保存します。</p>
-                                    </div>
-                                    
-                                    <li className="font-bold text-sm text-white mt-4">ドライブの保存先を決める</li>
-                                    <div className="pl-4">
-                                        <p>自分のGoogleドライブで保存したいフォルダを作り、そのフォルダのURLを「⚙️設定」のドライブURL欄に入力すれば完了です！</p>
+                                        <p>画面左上の「⚙️設定」を開き、「GAS Webアプリ URL」の欄に自分のURLを貼り付けて保存します。</p>
                                     </div>
                                 </ol>
                             </div>
-
                         </div>
                     )}
                 </div>
