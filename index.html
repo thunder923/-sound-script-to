@@ -485,26 +485,38 @@ function doGet(e) {
                     )}
 
                     {currentTab === 'manual' && (
-                        <div className="text-sm text-gray-300 space-y-4">
+                        <div className="text-sm text-gray-300 space-y-6">
                             
+                            {/* アプリ自体の基本的な使い方 */}
+                            <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
+                                <h3 className="font-bold text-white text-base mb-2">📌 このアプリの使い方</h3>
+                                <ol className="list-decimal list-inside space-y-3 text-xs text-gray-300">
+                                    <li><b>初期設定:</b> 画面左上の「⚙️設定」ボタンを押し、フォルダ名とGoogleドライブのURLを保存します。</li>
+                                    <li><b>テイク記録:</b> ロケ地・シーン・カット・テイク・ファイル番号などを入力し、「テイクを記録」を押します。（※ここで一旦スマホ本体に保存されます）</li>
+                                    <li><b>一括送信:</b> 休憩時などにリスト下の「スプレッドシートへ一括送信🚀」を押すと、指定したドライブフォルダ内にスプレッドシートが自動作成・更新されます。</li>
+                                    <li><b>修正と削除:</b> 保存待ちリストの各項目にある「修正」ボタンで再編集、「削除🗑️」で消去ができます。</li>
+                                </ol>
+                            </div>
+
+                            {/* 独立使用の準備（GAS設定） */}
                             <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
                                 <h3 className="font-bold text-blue-300 text-base mb-2">👤 他の人が独立して使うための準備</h3>
                                 <p className="text-xs text-gray-400 mb-4">このアプリURLを別の人が自分専用（自分のGoogleアカウント経由）で使う場合の手順です。</p>
                                 
                                 <ol className="list-decimal list-inside space-y-4 text-xs text-gray-300">
                                     <li className="font-bold text-sm text-white">専用のGASを作成する</li>
-                                    <div className="pl-4">
-                                        <p className="mb-2">1. スマホやPCで <a href="https://script.google.com/" target="_blank" className="text-blue-400 underline">Google Apps Script</a> にアクセスし、「新しいプロジェクト」を作成します。</p>
-                                        <p className="mb-2">2. もともと書かれているコードをすべて消して、以下のコードを貼り付けます。</p>
+                                    <div className="pl-4 space-y-2">
+                                        <p>1. スマホやPCで <a href="https://script.google.com/" target="_blank" className="text-blue-400 underline">Google Apps Script</a> にアクセスし、「新しいプロジェクト」を作成します。</p>
+                                        <p>2. もともと書かれているコードをすべて消して、以下のコードを貼り付けます。</p>
                                         
-                                        <div className="relative mb-2">
+                                        <div className="relative">
                                             <textarea readOnly value={GAS_CODE_STRING} rows="5" className="w-full text-[10px] font-mono bg-gray-900 p-2 rounded border border-gray-600"></textarea>
-                                            <button onClick={copyGasCode} className="absolute top-2 right-2 bg-blue-600 text-white px-2 py-1 rounded text-xs font-bold shadow">コピー</button>
+                                            <button onClick={copyGasCode} className="absolute top-2 right-2 bg-blue-600 text-white px-2 py-1 rounded text-xs font-bold shadow hover:bg-blue-500">コピー</button>
                                         </div>
 
-                                        <p className="mb-2">3. 右上の「デプロイ」＞「新しいデプロイ」を選択します。</p>
-                                        <p className="mb-2">4. 種類の選択（歯車）で「ウェブアプリ」を選びます。</p>
-                                        <p className="mb-2 text-red-300 font-bold">5. 【重要】アクセスできるユーザーを「全員 (Anyone)」にしてデプロイします。</p>
+                                        <p>3. 右上の「デプロイ」＞「新しいデプロイ」を選択します。</p>
+                                        <p>4. 種類の選択（歯車）で「ウェブアプリ」を選びます。</p>
+                                        <p className="text-red-300 font-bold">5. 【重要】アクセスできるユーザーを「全員 (Anyone)」にしてデプロイします。</p>
                                         <p>6. 発行された「ウェブアプリのURL」をコピーします。</p>
                                     </div>
 
