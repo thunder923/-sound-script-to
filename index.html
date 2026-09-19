@@ -1,6 +1,3 @@
-マイク（🎙️）のアイコンを標準装備した、最新の完全版HTMLコード（index.html）をご用意しました！
-スマホのホーム画面に「ホーム画面に追加」したとき、綺麗に🎙️のアイコンが並ぶ仕様になっています。このままコピーして置き換えてご利用ください。
-アプリ側コード (index.html・🎙️アイコン対応版)
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -202,15 +199,8 @@
                     return;
                 }
 
-                // ==========================================
-                // ★★★★★ ここにGASのURLを貼り付けてください ★★★★★
-                // ==========================================
-                const gasUrl = "★ここにGASのURLを貼り付けてください★";
-                
-                if (gasUrl.includes("★ここ")) {
-                    alert("GASのURLが設定されていません。コード内のgasUrlを書き換えてください。");
-                    return;
-                }
+                // 設定済みのGASのURL
+                const gasUrl = "https://script.google.com/macros/s/AKfycbz3kqrJKJUBy07J3tAv3GjrwYDDWrAIIc_bAoDsJhtraTsUPtPRwxk1u7-mGDkpPnwT/exec";
 
                 setIsSubmitting(true);
                 
@@ -436,7 +426,7 @@
                             <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
                                 <h3 className="font-bold text-white text-base mb-2">📁 フォルダID（URL）の取得方法</h3>
                                 <ol className="list-decimal list-inside space-y-2 text-xs text-gray-300">
-                                    <li>Googleドライブアプリ（またはブラウザ）で、保存先にしたいフォルダを開きます。</li>
+                                    <li>Googleドライブアプリ（またはブラウザ）で、保存実にしたいフォルダを開きます。</li>
                                     <li>フォルダの共有リンク（またはURL）をコピーします。</li>
                                     <li>本アプリの「⚙️設定」を開き、URLをそのまま貼り付けます（自動でIDが抽出されます）。</li>
                                 </ol>
@@ -458,4 +448,3 @@
     </script>
 </body>
 </html>
-
