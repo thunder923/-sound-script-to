@@ -33,7 +33,7 @@
 <body>
     <div id="root"></div>
     <script type="text/babel">
-        const { useState } = React;
+        const { useState, useEffect } = React;
 
         function App() {
             const loadProjectHistory = () => {
@@ -58,6 +58,11 @@
             const loadFolderName = () => {
                 return localStorage.getItem('targetFolderName') || "";
             };
+            // 未送信の保存待ち履歴をロード
+            const loadUnsentHistory = () => {
+                const saved = localStorage.getItem('unsentHistory');
+                return saved ? JSON.parse(saved) : [];
+            };
 
             const today = new Date().toISOString().split('T')[0];
             const [project, setProject] = useState("");
@@ -78,7 +83,13 @@
             const [memo, setMemo] = useState("");
             const [channels, setChannels] = useState(loadChannelHistory());
             
-            const [history, setHistory] = useState([]);
+            // 履歴が変更されたら自動でlocalStorageに保存する
+            const [history, setHistory] = useState(loadUnsentHistory());
+            const updateHistoryAndSave = (newHistory) => {
+                setHistory(newHistory);
+                localStorage.setItem('unsentHistory', JSON.stringify(newHistory));
+            };
+
             const [editingIndex, setEditingIndex] = useState(null);
             const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -156,11 +167,11 @@
                 if (editingIndex !== null) {
                     const newHistory = [...history];
                     newHistory[editingIndex] = currentData;
-                    setHistory(newHistory);
+                    updateHistoryAndSave(newHistory);
                     setEditingIndex(null);
                     setTake(prev => prev + 1);
                 } else {
-                    setHistory([currentData, ...history]); 
+                    updateHistoryAndSave([currentData, ...history]); 
                     setTake(prev => prev + 1);
                 }
                 
@@ -204,7 +215,6 @@
                     return;
                 }
 
-                // 最新のGASのURL
                 const gasUrl = "https://script.google.com/macros/s/AKfycbwfeT4E52_OOscVfqvPM9mn47BdddblwiMGz7D8Ae6cOxPDqdVJip40unCWTaxZSpbS/exec";
 
                 setIsSubmitting(true);
@@ -226,7 +236,7 @@
                     
                     if (result.status === "success") {
                         alert(`${history.length}件のテイクをスプレッドシートに送信しました！`);
-                        setHistory([]); 
+                        updateHistoryAndSave([]); // 送信成功したら未送信リストをクリア
                     } else {
                         alert("送信エラー: " + result.message);
                     }
@@ -429,7 +439,7 @@
                                     })}
                                     
                                     <div className={`btn w-full mt-4 ${isSubmitting ? 'btn-submitting' : 'btn-submit'}`} onClick={handleBatchSubmit}>
-                                        {isSubmitting ? '送信中...' : 'スプレッドシートへ一括送信 🚀'}
+                                        {isSubmitting ? '送信する...' : 'スプレッドシートへ一括送信 🚀'}
                                     </div>
                                 </div>
                             )}
