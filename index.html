@@ -55,6 +55,9 @@
             const loadFolderId = () => {
                 return localStorage.getItem('targetFolderId') || "";
             };
+            const loadFolderName = () => {
+                return localStorage.getItem('targetFolderName') || "";
+            };
 
             const today = new Date().toISOString().split('T')[0];
             const [project, setProject] = useState("");
@@ -82,6 +85,7 @@
             const [currentTab, setCurrentTab] = useState("recorder");
             const [showSettings, setShowSettings] = useState(false);
             const [folderInput, setFolderInput] = useState(loadFolderId());
+            const [folderNameInput, setFolderNameInput] = useState(loadFolderName());
 
             const handleFolderInputChange = (e) => {
                 const input = e.target.value;
@@ -119,8 +123,9 @@
 
             const saveSettings = () => {
                 localStorage.setItem('targetFolderId', folderInput.trim());
+                localStorage.setItem('targetFolderName', folderNameInput.trim());
                 setShowSettings(false);
-                alert("保存先フォルダIDを更新しました！");
+                alert("保存先設定を更新しました！");
             };
 
             const openFlightradar = () => {
@@ -231,9 +236,11 @@
                 }
             };
 
+            const currentFolderName = localStorage.getItem('targetFolderName');
+
             return (
                 <div className="max-w-md mx-auto p-4 pb-20">
-                    <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+                    <div className="flex justify-between items-center mb-2 border-b border-gray-700 pb-2">
                         <div className="flex items-center gap-2">
                             <h1 className="text-lg font-bold text-gray-200">🎙️ 録音スクリプト</h1>
                             <button onClick={() => setShowSettings(true)} className="bg-gray-700 text-gray-200 px-2 py-1 rounded text-xs">
@@ -259,20 +266,37 @@
                         </div>
                     </div>
 
+                    {/* 保存先フォルダ名の表示バー */}
+                    <div className="bg-gray-800 px-3 py-1.5 rounded mb-4 text-xs flex justify-between items-center border border-gray-700">
+                        <span className="text-gray-400">📁 保存先:</span>
+                        <span className="text-blue-300 font-bold truncate max-w-[260px]">
+                            {currentFolderName ? currentFolderName : "（未設定：設定から入力してください）"}
+                        </span>
+                    </div>
+
                     {showSettings && (
                         <div className="modal p-4">
                             <div className="bg-gray-800 p-4 rounded-lg w-full max-w-sm border border-gray-700">
                                 <h2 className="text-lg font-bold mb-2 text-white">⚙️ 保存先設定</h2>
-                                <p className="text-xs text-gray-400 mb-2">
-                                    Googleドライブの<b>フォルダのURL</b>をそのまま貼り付けてください。自動でIDが抽出されます。
-                                </p>
+                                
+                                <label className="text-xs text-gray-400 block mb-1">フォルダ名（わかりやすい名前）</label>
+                                <input 
+                                    type="text" 
+                                    value={folderNameInput} 
+                                    onChange={(e) => setFolderNameInput(e.target.value)} 
+                                    placeholder="例: 〇〇映画 録音データ" 
+                                    className="mb-3 text-sm"
+                                />
+
+                                <label className="text-xs text-gray-400 block mb-1">Googleドライブ フォルダURL</label>
                                 <textarea 
                                     value={folderInput} 
                                     onChange={handleFolderInputChange} 
                                     placeholder="https://drive.google.com/drive/folders/..." 
-                                    rows="3"
+                                    rows="2"
                                     className="mb-4 text-sm font-mono"
                                 ></textarea>
+
                                 <div className="flex gap-2">
                                     <button onClick={saveSettings} className="flex-1 bg-blue-600 text-white py-2 rounded font-bold">保存する</button>
                                     <button onClick={() => setShowSettings(false)} className="flex-1 bg-gray-600 text-white py-2 rounded">閉じる</button>
@@ -416,26 +440,10 @@
                             <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
                                 <h3 className="font-bold text-white text-base mb-2">📌 このアプリの使い方</h3>
                                 <ol className="list-decimal list-inside space-y-2 text-xs text-gray-300">
-                                    <li><b>初期設定:</b> 画面左上の「⚙️設定」ボタンを押し、Googleドライブの保存先フォルダのURLを貼り付けて保存します。</li>
+                                    <li><b>初期設定:</b> 画面左上の「⚙️設定」ボタンを押し、フォルダ名とGoogleドライブのURLを保存します。</li>
                                     <li><b>テイク記録:</b> シーン・カット・テイク・ファイル番号などを入力し、「テイクを記録」を押します。</li>
-                                    <li><b>一括送信:</b> 休憩時などに「スプレッドシートへ一括送信」を押すと、あなたのGoogleドライブ内に作品ごとのスプレッドシートが自動作成され、日付ごとにシートが分かれて記録されます。</li>
+                                    <li><b>一括送信:</b> 休憩時などに「スプレッドシートへ一括送信」を押すと、指定したドライブフォルダ内にスプレッドシートが自動作成されます。</li>
                                 </ol>
-                            </div>
-
-                            <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-                                <h3 className="font-bold text-white text-base mb-2">📁 フォルダID（URL）の取得方法</h3>
-                                <ol className="list-decimal list-inside space-y-2 text-xs text-gray-300">
-                                    <li>Googleドライブアプリ（またはブラウザ）で、保存したいフォルダを開きます。</li>
-                                    <li>フォルダの共有リンク（またはURL）をコピーします。</li>
-                                    <li>本アプリの「⚙️設定」を開き、URLをそのまま貼り付けます（自動でIDが抽出されます）。</li>
-                                </ol>
-                            </div>
-
-                            <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-                                <h3 className="font-bold text-white text-base mb-2">⚠️ 初回送信時の注意点</h3>
-                                <p className="text-xs text-gray-300 leading-relaxed">
-                                    初めて「一括送信」を行う際、Googleのセキュリティ画面（「このアプリはGoogleで確認されていません」）が表示されることがあります。その場合は、<b>「詳細」 ＞ 「安全ではないページに移動」 ＞ 「許可」</b>の順に進めてください。これはご自身のドライブに安全に書き込むための初回の承認となります（2回目以降は出ません）。
-                                </p>
                             </div>
                         </div>
                     )}
